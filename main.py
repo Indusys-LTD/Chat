@@ -7,9 +7,13 @@ import threading
 class ChatGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Ollama Chat")
+        self.root.title("Local LLM Chat")
         self.context = None
         self.available_models = []
+        
+        # Load icons
+        self.user_icon = tk.PhotoImage(file="user.png").subsample(2, 2)
+        self.bot_icon = tk.PhotoImage(file="bot.png").subsample(2, 2)
         
         # Configure main window
         self.root.geometry("800x600")
@@ -57,8 +61,18 @@ class ChatGUI:
         )
         self.model_combobox.pack(side="left", padx=5)
         
-        # Chat history
-        self.chat_history = scrolledtext.ScrolledText(self.root, wrap=tk.WORD, state="disabled")
+        # Modified chat history configuration
+        self.chat_history = scrolledtext.ScrolledText(
+            self.root, 
+            wrap=tk.WORD, 
+            state="disabled",
+            font=("Arial", 12),
+            padx=10,
+            pady=5,
+            bg='#f0f0f0'
+        )
+        self.chat_history.tag_configure('user', justify='right', background='#0084ff', foreground='white', spacing1=5, spacing3=5, lmargin1=100, rmargin=10)
+        self.chat_history.tag_configure('assistant', justify='left', background='#e5e5ea', spacing1=5, spacing3=5, rmargin=10, lmargin1=100)
         self.chat_history.pack(pady=10, padx=10, fill="both", expand=True)
         
         # Input area
@@ -79,7 +93,17 @@ class ChatGUI:
         
     def update_chat_history(self, sender, message):
         self.chat_history.configure(state="normal")
-        self.chat_history.insert(tk.END, f"{sender}: {message}\n\n")
+        
+        # Insert avatar
+        if sender == "You":
+            self.chat_history.image_create(tk.END, image=self.user_icon, padx=5)
+            tag = 'user'
+        else:
+            self.chat_history.image_create(tk.END, image=self.bot_icon, padx=5)
+            tag = 'assistant'
+        
+        # Insert message
+        self.chat_history.insert(tk.END, "  " + message + "\n\n", tag)
         self.chat_history.configure(state="disabled")
         self.chat_history.see(tk.END)
         
