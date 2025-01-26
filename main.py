@@ -33,11 +33,14 @@ class ChatGUI:
             'assistant_color': "#ff4a4a",
             'text_primary': "#ffffff",
             'text_secondary': "#cccccc",
-            'border_color': "#404040"
+            'border_color': "#404040",
+            'scroll_trough': "#333333"  # Added new scrollbar color
         }
         
         # Configure style
         style = ttk.Style()
+        style.theme_use('clam')  # Added this line for better theme support
+        
         style.configure(
             "Custom.TButton",
             padding=6,
@@ -54,8 +57,23 @@ class ChatGUI:
         style.configure(
             "Custom.Horizontal.TScrollbar",
             background=self.theme['bg_light'],
-            troughcolor=self.theme['bg_dark'],
+            troughcolor=self.theme['scroll_trough'],  # Changed from bg_dark
             bordercolor=self.theme['border_color']
+        )
+        
+        style.configure(
+            "Custom.TCombobox",
+            fieldbackground=self.theme['bg_dark'],
+            foreground=self.theme['text_primary'],
+            background=self.theme['bg_dark'],
+            selectbackground=self.theme['accent_blue'],
+            selectforeground=self.theme['text_primary'],
+            bordercolor=self.theme['border_color'],
+            arrowcolor=self.theme['text_primary']
+        )
+        style.map('Custom.TCombobox',
+            fieldbackground=[('readonly', self.theme['bg_dark'])],
+            background=[('readonly', self.theme['bg_dark'])]
         )
         
         self.context = None
@@ -224,7 +242,8 @@ class ChatGUI:
         self.input_entry = ttk.Entry(
             input_controls,
             font=("Segoe UI", 11),
-            style="Custom.TEntry"
+            style="Custom.TEntry",
+            width=50  # Added fixed width for better layout
         )
         self.input_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.input_entry.bind("<Return>", lambda event: self.send_message())
@@ -260,14 +279,14 @@ class ChatGUI:
         self.send_button.pack(side="left", padx=5)
 
     def create_footer(self):
-        footer = tk.Frame(self.root, bg=self.theme['accent_blue'], height=30)
+        footer = tk.Frame(self.root, bg=self.theme['bg_medium'], height=30)  # Changed from accent_blue
         footer.pack(side="bottom", fill="x")
         footer.pack_propagate(False)
         
         self.footer_label = tk.Label(
             footer,
             text="Status: Ready",
-            bg=self.theme['accent_blue'],
+            bg=self.theme['bg_medium'],  # Changed from accent_blue
             fg=self.theme['text_primary'],
             font=("Segoe UI", 9),
             anchor="w"
@@ -344,7 +363,9 @@ class ChatGUI:
                 fg=self.theme['text_primary'],
                 relief="flat",
                 height=1,
-                width=40
+                width=40,
+                highlightthickness=0,
+                borderwidth=0
             )
             content.pack(fill="both", expand=True)
             
@@ -421,7 +442,9 @@ class ChatGUI:
                 fg=self.theme['text_primary'],
                 relief="flat",
                 height=1,
-                width=40
+                width=40,
+                highlightthickness=0,
+                borderwidth=0
             )
             content.pack(fill="both", expand=True)
             
@@ -539,7 +562,9 @@ class ChatGUI:
             fg=self.theme['text_primary'],
             relief="flat",
             height=min(len(code.split('\n')), 20),
-            width=60
+            width=60,
+            highlightthickness=0,
+            borderwidth=0
         )
         code_text.pack(fill="both", expand=True)
         
@@ -791,12 +816,16 @@ class ChatGUI:
             "Custom.TNotebook.Tab",
             background=self.theme['bg_medium'],
             foreground=self.theme['text_primary'],
-            padding=[10, 2]
+            padding=[10, 2],
+            lightcolor=self.theme['bg_medium'],
+            darkcolor=self.theme['bg_medium']
         )
         style.map(
             "Custom.TNotebook.Tab",
             background=[("selected", self.theme['bg_dark'])],
-            foreground=[("selected", self.theme['text_primary'])]
+            foreground=[("selected", self.theme['text_primary'])],
+            lightcolor=[("selected", self.theme['bg_dark'])],
+            darkcolor=[("selected", self.theme['bg_dark'])]
         )
         
         # Add search entry
@@ -823,24 +852,27 @@ class ChatGUI:
         notebook.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
         for category, emojis in categories.items():
-            page = tk.Frame(notebook, bg=self.theme['bg_dark'])
+            page = tk.Frame(
+                notebook, 
+                bg=self.theme['bg_dark'],  # Changed from bg_dark to match theme
+                padx=5,
+                pady=5
+            )
             notebook.add(page, text=category)
             
             for i, emoji in enumerate(emojis):
-                btn = tk.Button(
+                btn = tk.Label(
                     page,
                     text=emoji,
                     font=("Segoe UI Emoji", 20),
                     bg=self.theme['bg_dark'],
                     fg=self.theme['text_primary'],
-                    activebackground=self.theme['accent_blue'],
-                    activeforeground=self.theme['text_primary'],
-                    bd=0,
-                    command=lambda e=emoji: [self.insert_emoji(e), picker.destroy()]
+                    padx=5,
+                    pady=2
                 )
-                btn.grid(row=i//8, column=i%8, padx=2, pady=2)
+                btn.bind("<Button-1>", lambda e, em=emoji: [self.insert_emoji(em), picker.destroy()])
                 
-                # Add hover effect
+                # Update hover effects to use theme colors
                 btn.bind("<Enter>", lambda e, b=btn: b.configure(bg=self.theme['accent_blue']))
                 btn.bind("<Leave>", lambda e, b=btn: b.configure(bg=self.theme['bg_dark']))
 
@@ -908,7 +940,8 @@ class ChatGUI:
                 text=filename,
                 bg=self.theme['bg_dark'],
                 fg=self.theme['text_primary'],
-                font=("Segoe UI", 10)
+                font=("Segoe UI", 10),
+                padx=5  # Add padding
             )
             name_label.pack(side="left", padx=5)
         
