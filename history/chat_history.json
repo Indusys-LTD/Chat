@@ -1,8 +1,12 @@
 [
     {
-        "text": "Python",
+        "text": "test",
         "attachments": [],
         "sender": "You",
-        "timestamp": "2025-01-26T16:47:28.974577"
+        "timestamp": "2025-01-26T17:13:52.461728"
+    },
+    {
+        "sender": "Assistant",
+        "message": "<think> It seems like you're testing or checking something. How can I assist you with this test? Let me know if you need help with anything specific! \ud83d\ude0a"
     }
 ]
