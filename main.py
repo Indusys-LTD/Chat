@@ -4,6 +4,7 @@ import json
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 import threading
+from PIL import Image, ImageTk
 
 class ChatGUI:
     def __init__(self, root):
@@ -13,9 +14,9 @@ class ChatGUI:
         self.available_models = []
         self.chat_history_data = []
         
-        # Load icons
-        self.user_icon = tk.PhotoImage(file="user.png").subsample(2, 2)
-        self.bot_icon = tk.PhotoImage(file="bot.png").subsample(2, 2)
+        # Load and resize icons
+        self.user_icon = self._load_resized_icon("user.png")
+        self.bot_icon = self._load_resized_icon("bot.png")
         
         # Create Sidebar
         self.create_sidebar()
@@ -174,6 +175,9 @@ class ChatGUI:
 
     def stream_llm_response(self, user_input):
         try:
+            # Start typing animation
+            self.root.after(0, self.start_typing_animation)
+            
             url = "http://localhost:11434/api/chat"
             payload = {
                 "model": self.model_var.get(),
@@ -182,8 +186,7 @@ class ChatGUI:
                 "context": self.context
             }
 
-            full_response = []
-            current_response = ""  # Track the current response state
+            raw_response = []
             with requests.post(url, json=payload, stream=True) as response:
                 response.raise_for_status()
                 for line in response.iter_lines():
@@ -191,51 +194,72 @@ class ChatGUI:
                         chunk = json.loads(line)
                         if chunk.get("message"):
                             content = chunk["message"]["content"]
-                            full_response.append(content)
-                            current_response += content
-                            self.root.after(0, self.update_streaming_response, current_response)
-                        if chunk.get("context"):
-                            self.context = chunk["context"]
+                            raw_response.append(content)
 
-            # Finalize the response
-            self.root.after(0, self.finalize_response, "".join(full_response))
+            # Stop typing animation and process response
+            self.root.after(0, self.stop_typing_animation)
+            
+            full_content = "".join(raw_response)
+            clean_content = full_content.replace("</think>", "").strip()
+            clean_content = ' '.join(clean_content.split())
+            
+            self.root.after(0, self.finalize_response, clean_content)
 
         except Exception as e:
+            self.root.after(0, self.stop_typing_animation)
             self.root.after(0, messagebox.showerror, "Error", str(e))
         finally:
             self.root.after(0, lambda: self.send_button.config(state="normal"))
             self.root.after(0, lambda: self.footer_label.config(text="Status: Ready"))
 
-    def update_streaming_response(self, content):
-        self.chat_history.configure(state="normal")
-        
-        # Check if we have an existing streaming response
-        if hasattr(self, 'streaming_mark'):
-            # Delete from the mark to end
-            self.chat_history.delete(self.streaming_mark, "end")
-        else:
-            # Insert bot icon for new response
-            self.chat_history.image_create(tk.END, image=self.bot_icon, padx=5)
-            self.streaming_mark = self.chat_history.index(tk.END)
-        
-        # Insert updated content
-        self.chat_history.insert(tk.END, "  " + content, "assistant")
-        self.chat_history.see(tk.END)
-        self.chat_history.configure(state="disabled")
+    def start_typing_animation(self):
+        self.typing_active = True
+        self.typing_steps = [".  ", ".. ", "..."]
+        self.typing_step = 0
+        self._animate_typing()
 
-    def finalize_response(self, full_content):
+    def _animate_typing(self):
+        if not self.typing_active:
+            return
+        
         self.chat_history.configure(state="normal")
         
-        # Remove the temporary streaming mark
-        if hasattr(self, 'streaming_mark'):
-            del self.streaming_mark
+        # Create or update typing indicator
+        if hasattr(self, 'typing_indicator'):
+            self.chat_history.delete(self.typing_indicator, "end")
+        else:
+            self.chat_history.image_create(tk.END, image=self.bot_icon, padx=5)
+            self.typing_indicator = self.chat_history.index(tk.END)
         
-        # Ensure final formatting
-        self.chat_history.insert(tk.END, "\n\n", "assistant")
+        # Insert current animation step
+        dots = self.typing_steps[self.typing_step]
+        self.chat_history.insert(tk.END, "  " + dots, "typing")
+        self.typing_step = (self.typing_step + 1) % len(self.typing_steps)
+        
+        self.chat_history.configure(state="disabled")
+        self.chat_history.see(tk.END)
+        
+        # Schedule next animation frame
+        self.root.after(500, self._animate_typing)
+
+    def stop_typing_animation(self):
+        self.typing_active = False
+        if hasattr(self, 'typing_indicator'):
+            self.chat_history.configure(state="normal")
+            self.chat_history.delete(self.typing_indicator, "end")
+            self.chat_history.configure(state="disabled")
+            del self.typing_indicator
+
+    def finalize_response(self, clean_content):
+        self.stop_typing_animation()
+        
+        self.chat_history.configure(state="normal")
+        self.chat_history.image_create(tk.END, image=self.bot_icon, padx=5)
+        self.chat_history.insert(tk.END, "  " + clean_content + "\n\n", "assistant")
         self.chat_history.configure(state="disabled")
         
-        # Update chat history data
-        self.chat_history_data.append({"sender": "Assistant", "message": full_content})
+        # Save to history
+        self.chat_history_data.append({"sender": "Assistant", "message": clean_content})
         self.save_chat_to_file()
 
     def save_chat_to_file(self):
@@ -262,6 +286,16 @@ class ChatGUI:
             for entry in self.chat_history_data:
                 self.update_chat_history(entry["sender"], entry["message"])
             self.chat_history.configure(state="disabled")
+
+    def _load_resized_icon(self, filename):
+        """Load and resize icon to 32x32 pixels"""
+        try:
+            img = Image.open(filename)
+            img = img.resize((32, 32), Image.LANCZOS)
+            return ImageTk.PhotoImage(img)
+        except FileNotFoundError:
+            print(f"Warning: Icon file {filename} not found")
+            return ImageTk.PhotoImage(Image.new('RGBA', (32, 32), (0, 0, 0, 0)))
 
 if __name__ == "__main__":
     root = tk.Tk()
